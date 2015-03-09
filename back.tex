@@ -1,0 +1,64 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+
+\usepackage[utf8]{inputenc}
+\newcommand{\tet}[3]{\theta^{({#1-1})} _{{#2}_{{#1}},{#3}_{{#1-1} }}}
+\newcommand{\aet}[2]{a^{({#1})} _{{#2}_{{#1}} }}
+\newcommand{\zet}[3]{z^{({#1-1})} _{{#2}_{{#1}},{#3}_{{#1-1} }}}
+\newcommand{\Fet}[3]{F^{({#1})} _{{#2}_{{#1}},{#3}_{{#1} }}}
+\newcommand{\delt}[2]{\delta^{({#1})} _{{#2}_{{#1}}}}
+%opening
+\title{Back Propagation}
+\author{Marc Emanuel}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+
+\end{abstract}
+We consider a neural network with $k$ layers.  The cost function  we write with $q$ running over the samples as  and summing over repeated indices ( Einstein summing convention):
+\begin{align}
+  J&= \frac{1}{m}\sum_q   y_i \log[\sigma(z^{(k)}_i)]+(1-y_i)\log[1-\sigma(z^{(k)}_i)]  \\
+  z^{(l)}_i &= \theta^{(l-1)}_{i,j} \sigma(z^{(l-1)}_j)  \label{eq:rec}\\
+  z^{(2)}_i& = \theta^{(1)}_{i,j} X_j
+\end{align}
+The second equation is a recursion and the third  the initial condition. $\sigma$ is the sigmoid function with derivative :
+\begin{align}
+  \sigma'(z) &= \sigma(z)(1-\sigma(z)) = \frac{1}{2}\frac{1}{1+\cosh(z)}
+\end{align}
+The first form is as given in the programming exercise, but it is in fact not a good expression to calculate it computationally since it is pretty sensitive to rounding errors especially when $z$ is larger than zero when you subtract two numbers that are almost equal. The second form behaves much better. We will use the first form in the analytical calculations.
+
+The question is how to calculate the gradient wrt to $\theta^{(\ell)}_{i,j}$ for an $\ell \in(k,1]$
+
+Lets do it using induction:
+The first step is (I will leave out the q summation for clarity) just applying the chain-rule
+\begin{align}
+  \partial_{\theta^{(k-1)}_{r,s}} J & =\left\{ y_i \frac{\sigma(z^{(k)}_i)[1-\sigma(z^{(k)}_i)]}{\sigma(z^{(k)}_i)}  -(1-y_i) \frac{\sigma(z^{(k)}_i)[1-\sigma(z^{(k)}_i)]}{1-\sigma(z^{(k)}_i)}  \right\} \partial_{\theta^{(k-1)}_{r,s}}z^{(k)}_i
+\end{align}
+and lo and behold lots of terms cancel and using~\eqref{eq:rec} this leaves us with
+\begin{align}
+   \partial_{\theta^{(k-1)}_{r,s}} J & =[ y_r - \sigma(z_r^{(k)})]   \sigma(z_s^{(k-1)})  =[y_r - a^{(k)}_r]. a^{(k-1)}_s=:\delta_r^{(k)} a^{(k-1)}_s
+\end{align}\label{eq:first}
+To streamline the iteration for the rest of the chain of maps we consider at each level the $a_{i_{\ell}}^{(\ell)}$ as the coordinates of an $n_{\ell}$ -dimensional space, $\mathtt{C}_{\ell}$ which is at least locally  a normal  Euclidean space for which $a_i$'s are local coordinates
+To keep the overview we index the index with the level, thus we know in local coordinates on what level we are. We next define maps:
+\begin{align*}
+  F^{(k-1)}_{i_{\ell},j_{\ell-1}}: &\mathtt{C}_{\ell-1}\rightarrow \mathtt{C}_{\ell} &\text{ through:  }\qquad F^{(k-1)}_{i_{\ell},j_{\ell-1}} (a^{(\ell-1)}_{j_{\ell-1}}) := \sigma(\theta^{\ell-1}_{i_{\ell},j_{\ell-1}}a^{(\ell-1)}_{j_{\ell-1}})
+\end{align*}
+This tells us the output,  of the neural network is given by the composition :  
+$$a^{(k)} =F^{(k-1)} \circ F^{(k-2)} \circ \cdots F^{(1)}(a^{(1)})$$
+Now the parameter matrix  $\theta^{(\ell)}$ only appears in the map(s) $F^{\ell}$ . And so to obtain the partial derivatives of the $J$ we chain rule downwards along the map chain till we bump into the corresponding map:
+\begin{align}
+ \frac{\partial J}{\partial \tet{\ell}{ i}{ j}} &= \frac{\partial{J}}{\partial \aet{k-1}{r}}\frac{\partial \aet{k-1}{r}}{\tet{\ell}{ i}{ j}} \\
+\end{align}
+The first derivative we can do along the lines of the derivation of ~\eqref{eq:first}, exchanging the role played by the linear map, $\tet{k}{i}{j}$ and the coordinates ,$\aet{k-1}{i}$. The second one is the derivative of the chain of maps
+\begin{align}
+  \frac{\partial J}{\partial \theta^{(\ell)}_{i_{\ell +1},r_{\ell}}}  &=\delt{k}{r}\tet{k}{r}{s}\frac{\partial}{\theta^{(\ell)}{ i_{\ell+1}, j_{\ell}}}( F^{(k-2)}_{s_{k-1},{\cdots}}\circ\cdots F^{(1)(a^{(1)})})\notag\\
+      &=\delt{k}{r}\tet{k}{r}{r} d_aF^{k-2}_{r_{k-1},r_{k-2}}d_aF^{k-3}_{r_{k-2},r_{k-3}}\cdots   \frac{\partial}{\theta^{(\ell)}_{i_{\ell +1},r_{\ell}} } F^{(\ell)}_{r_{\ell+1}, r_{\ell}} \notag\\
+      &=\delt{k}{r}\tet{k}{r}{r} d_aF^{k-2}_{r_{k-1},r_{k-2}}d_aF^{k-3}_{r_{k-2},r_{k-3}}\cdots  \sigma'(\theta^{(\ell)}_{i_{\ell +1},r_{\ell}}  \aet{\ell}{r})  \aet{\ell}{j}\notag\\
+      & =: \delta^{\ell+1}_{i_{\ell+1}} \aet{\ell}{j}
+\end{align}
+With $da F$ denoting the derivative of $F$ wrt its argument.
+Now it straightforward to validate the back propagation. This is of course pretty messy all these indices , so I have the feeling that the neater way to show this is to consider the gradient as a one form and in that case is the back propagation nothing but a pull back of the gradient. Perhaps TA's know  if this has been done in this context ?
+ \end{document}
